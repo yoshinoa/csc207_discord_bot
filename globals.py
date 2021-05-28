@@ -1,6 +1,5 @@
 from typing import Dict, Tuple, Union, List
-from guild import Guild
-from weekday import Day
+from structures import Guild, Day
 
 def init() -> Tuple[Dict[Union[int, str], str], Dict[str, Union[int, str]], List[Tuple[str, str]], Dict[int, Guild]]:
     REACTION_IDS = {1: '<:1_:847420709008572436>', 2: '<:2_:847421951786090516>',

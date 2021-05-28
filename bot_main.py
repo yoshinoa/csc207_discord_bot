@@ -5,13 +5,12 @@ import pickle
 from dotenv import load_dotenv
 from typing import Dict
 import pendulum
-from user import User
-from guild import Guild
-from meetings import Meeting
-import meetings
+from structures import Guild, Day, User, Meeting
+import structures
 from pendulum.tz.zoneinfo.exceptions import InvalidTimezone
 import globals
-from weekday import Day
+from task import Task
+import task
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -61,11 +60,13 @@ async def onstart(client_item):
             pickle_data = pickle.load(pickle_file)
         global all_guilds
         all_guilds = pickle_data['initialized_guilds']
-        meetings.globvar = pickle_data['globvar']
+        structures.globvar = pickle_data['globvar']
+        task.taskglob = pickle_data['taskglob']
+
 
 
 def write_file():
-    writing_dict = {"initialized_guilds": all_guilds, 'globvar': meetings.globvar}
+    writing_dict = {"initialized_guilds": all_guilds, 'globvar': structures.globvar, 'taskglob': task.taskglob}
     with open("session.pickle", "wb") as pickle_file:
         pickle.dump(writing_dict, pickle_file)
 
@@ -216,6 +217,9 @@ async def select(ctx, day, time):
             dt = dt.add(weeks=1)
         local_meeting = Meeting(dt)
         all_guilds[message.guild.id].users[message.author.id].meetings[local_meeting.meeting_id] = local_meeting
+        all_guilds[message.guild.id].meetings[local_meeting.meeting_id] = local_meeting
+
+
         for user in all_guilds[message.guild.id].users[message.author.id].last_command[1]:
             string_builder += f'<@!{user}>, '
             all_guilds[message.guild.id].users[user].meetings[local_meeting.meeting_id] = local_meeting
@@ -238,19 +242,18 @@ async def list(ctx):
             await message.channel.send(str_builder)
         else:
             await message.channel.send("No meetings scheduled.")
-@client.command(name='remove',
-                help='Usage: -remove [meeting id]',
+@client.command(name='leave',
+                help='Usage: -leave [meeting id]',
                 brief='Removes specified meeting')
 async def remove_command(ctx, meeting_id: int):
     message = ctx.message
     if message.author.id in all_guilds[message.guild.id].users:
-        if all_guilds[message.guild.id].users[message.author.id].remove_meeting(meeting_id):
-            await message.channel.send("Removed meeting.")
+        if all_guilds[message.guild.id].meetings[meeting_id].remove_user(message.author.id):
+            await message.channel.send("Removed you from meeting.")
         else:
             await message.channel.send("Invalid meeting id.")
-
     else:
-        await message.channel.send("Not a valid user.")
+        await message.channel.send("You aren't a registered user.")
 
 @client.command(name='schedule',
                 help='Usage -schedule @user',
@@ -271,10 +274,9 @@ async def schedule(ctx):
                 brief='Removes all users from meeting')
 async def cancel_command(ctx, meeting_id: int):
     message = ctx.message
-    user_list = []
-    for users in all_guilds[message.guild.id].users:
-        if all_guilds[message.guild.id].users[users].remove_meeting(meeting_id):
-            user_list.append(users)
+    meeting = all_guilds[ctx.guild.id].meetings[meeting_id]
+    user_list = meeting.return_user_ids()
+    meeting.delete_self()
     if user_list:
         str_builder = f"Cancelled meeting with id {meeting_id} for users: "
         for i in user_list:
@@ -299,19 +301,29 @@ async def commands(ctx):
 async def clear(ctx):
     message = ctx.message
     if message.author.id in all_guilds[message.guild.id].users:
-        all_guilds[message.guild.id].users[message.author.id].meetings = {}
+        for meetingid in all_guilds[message.guild.id].users[message.author.id].meetings:
+            all_guilds[message.guild.id].users[message.author.id].meetings[meetingid].remove_participant(message.author.id)
+        await ctx.send('Removed from all meetings.')
+    else:
+        await ctx.send('Not a registered user')
 
 @client.command(name='removeuser',
                 help='Usage: -removeuser @user',
                 brief='Remove the data of a user from this server')
 async def removeuser(ctx):
     user = ctx.message.mentions[0]
-    message = ctx.message
     if user.id in all_guilds[ctx.guild.id].users:
-        all_guilds[ctx.guild.id].users.pop(user.id)
+        all_guilds[ctx.guild.id].remove_user(user.id)
         await ctx.send('Removed user from data')
     else:
         await ctx.send("User wasn't in data.")
+
+# @client.command(name='task',
+#                 help='Usage: -task [modifier] [action]',
+#                 brief='Do various actions with tasks.')
+# async def task_command(ctx, modifier, *args):
+#     if modifier == 'create':
+
 
 
 @client.command(name='timezone',
@@ -335,6 +347,7 @@ async def on_command_error(ctx, error):
         await ctx.send('Missing a required argument, check usage with -help [command]')
     if isinstance(error, discord.ext.commands.errors.CommandNotFound):
         await ctx.send('That isn\'t a valid command, check valid commands with -commands')
+
 
 
 @client.event
