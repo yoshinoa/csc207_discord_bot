@@ -1,21 +1,22 @@
 import discord
+from discord.ext import commands
 import os
 import pickle
 from dotenv import load_dotenv
-from typing import List, Tuple, Any, Dict
+from typing import Dict
 import pendulum
 from user import User
 from guild import Guild
 from meetings import Meeting
 import meetings
 from pendulum.tz.zoneinfo.exceptions import InvalidTimezone
-from globals import init
+import globals
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 intents = discord.Intents.all()
-client = discord.Client(intents=intents)
-REACTION_IDS, REVERSE_DICT, DAYS_OF_WEEK, all_guilds = init()
+client = commands.Bot(intents=intents, command_prefix='-')
+REACTION_IDS, REVERSE_DICT, DAYS_OF_WEEK, all_guilds = globals.init()
 
 def parse_timezone(timezone: str) -> str:
     '''
@@ -29,6 +30,31 @@ def parse_timezone(timezone: str) -> str:
     except InvalidTimezone:
         return ''
 
+def localize_dictionary(user: User, input_dict: Dict[str, Dict[int, bool]]):
+    local_availability = globals.local_availability()
+    for day in input_dict:
+        for times in input_dict[day]:
+            dt = pendulum.from_format(f'{day} {times}', 'dddd H', tz="America/Toronto")
+            input_vars = dt.in_tz(user.timezone).format('dddd-H').split('-')
+            local_availability[input_vars[0]][int(input_vars[1])] = input_dict[day][times]
+    return local_availability
+
+
+def format_date_dictionary(user: User, input_dict: Dict[str, Dict[int, bool]]):
+    string = f"Times are in **{user.timezone}**\n```"
+    local_availability = localize_dictionary(user, input_dict)
+    for day in local_availability:
+        times = []
+        for value in local_availability[day]:
+            if local_availability[day][value]:
+                times.append(value)
+        if times:
+            string += day + ": "
+            for value in times:
+                string += str(value) + ":00, "
+            string = string[:-2] + "\n"
+    string += '```'
+    return string
 
 async def get_member(new_user, owo_client):
     for item in owo_client.guilds:
@@ -122,79 +148,6 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
                 local_user.remove_time(time_set, day_set)
                 write_file()
 
-def localize_dictionary(user: User, input_dict: Dict[str, Dict[int, bool]]):
-    local_availability = {'Monday': {1: False, 2: False, 3: False, 4: False,
-                                     5: False, 6: False, 7: False, 8: False,
-                                     9: False, 10: False, 11: False, 12: False,
-                                     13: False, 14: False, 15: False, 16: False,
-                                     17: False, 18: False, 19: False, 20: False,
-                                     21: False, 22: False, 23: False, 0: False},
-                          'Tuesday': {1: False, 2: False, 3: False, 4: False,
-                                      5: False, 6: False, 7: False, 8: False,
-                                      9: False, 10: False, 11: False, 12: False,
-                                      13: False, 14: False, 15: False,
-                                      16: False, 17: False, 18: False,
-                                      19: False, 20: False, 21: False,
-                                      22: False, 23: False, 0: False},
-                          'Wednesday': {1: False, 2: False, 3: False, 4: False,
-                                        5: False, 6: False, 7: False, 8: False,
-                                        9: False, 10: False, 11: False,
-                                        12: False, 13: False, 14: False,
-                                        15: False, 16: False, 17: False,
-                                        18: False, 19: False, 20: False,
-                                        21: False, 22: False, 23: False,
-                                        0: False},
-                          'Thursday': {1: False, 2: False, 3: False, 4: False,
-                                       5: False, 6: False, 7: False, 8: False,
-                                       9: False, 10: False, 11: False,
-                                       12: False, 13: False, 14: False,
-                                       15: False, 16: False, 17: False,
-                                       18: False, 19: False, 20: False,
-                                       21: False, 22: False, 23: False,
-                                       0: False},
-                          'Friday': {1: False, 2: False, 3: False, 4: False,
-                                     5: False, 6: False, 7: False, 8: False,
-                                     9: False, 10: False, 11: False, 12: False,
-                                     13: False, 14: False, 15: False, 16: False,
-                                     17: False, 18: False, 19: False, 20: False,
-                                     21: False, 22: False, 23: False, 0: False},
-                          'Saturday': {1: False, 2: False, 3: False, 4: False,
-                                       5: False, 6: False, 7: False, 8: False,
-                                       9: False, 10: False, 11: False,
-                                       12: False, 13: False, 14: False,
-                                       15: False, 16: False, 17: False,
-                                       18: False, 19: False, 20: False,
-                                       21: False, 22: False, 23: False,
-                                       0: False},
-                          'Sunday': {1: False, 2: False, 3: False, 4: False,
-                                     5: False, 6: False, 7: False, 8: False,
-                                     9: False, 10: False, 11: False, 12: False,
-                                     13: False, 14: False, 15: False, 16: False,
-                                     17: False, 18: False, 19: False, 20: False,
-                                     21: False, 22: False, 23: False, 0: False}}
-    for day in input_dict:
-        for times in input_dict[day]:
-            dt = pendulum.from_format(f'{day} {times}', 'dddd H', tz="America/Toronto")
-            input_vars = dt.in_tz(user.timezone).format('dddd-H').split('-')
-            local_availability[input_vars[0]][int(input_vars[1])] = input_dict[day][times]
-    return local_availability
-
-
-def format_date_dictionary(user: User, input_dict: Dict[str, Dict[int, bool]]):
-    string = f"Times are in **{user.timezone}**\n"
-    local_availability = localize_dictionary(user, input_dict)
-    for day in local_availability:
-        times = []
-        for value in local_availability[day]:
-            if local_availability[day][value]:
-                times.append(value)
-        if times:
-            string += day + ": "
-            for value in times:
-                string += str(value) + ":00, "
-            string = string[:-2] + "\n"
-    return string
-
 
 @client.event
 async def on_ready():
@@ -206,78 +159,147 @@ async def on_ready():
     print(f"{client.user} has connected to discord!")
 
 
-@client.event
-async def on_message(message):
-    if message.content[0:8] == '-meeting':
-        users_to_check = []
-        userids = []
-        try:
-            message.mentions[0]
-        except IndexError:
-            await message.channel.send(f"Input did not contain another user, please @ them.")
-        for user in message.mentions:
-            if message.guild.id in all_guilds and user.id in all_guilds[message.guild.id].users:
-                users_to_check.append(all_guilds[message.guild.id].users[user.id])
-                userids.append(user.id)
-            else:
-                await message.channel.send(f"{user.name} hasn't set their schedule.")
+@client.command(name='meeting',
+                help="Usage: -meeting @user1 @user2 ex. -meeting @132ads",
+                brief="Gives meeting times for this user and the tagged other users.")
+async def meeting(context):
+    message = context.message
+    users_to_check = []
+    userids = []
+    try:
+        message.mentions[0]
+    except IndexError:
+        await message.channel.send(f"Input did not contain another user, please @ them.")
+    for user in message.mentions:
+        if message.guild.id in all_guilds and user.id in all_guilds[message.guild.id].users:
+            users_to_check.append(all_guilds[message.guild.id].users[user.id])
+            userids.append(user.id)
+        else:
+            await message.channel.send(f"{user.name} hasn't set their schedule.")
+    if userids:
         date_dict = all_guilds[message.guild.id].users[message.author.id].compare_with(users_to_check)
         all_guilds[message.guild.id].users[message.author.id].last_command = (localize_dictionary(all_guilds[message.guild.id].users[message.author.id], date_dict), userids)
-        await message.channel.send(format_date_dictionary(all_guilds[message.guild.id].users[message.author.id], date_dict))
-
-    elif message.content[0:7] == '-select':
-        day = message.content[7:].strip().split(' ')[0]
-        time = message.content[7:].strip().split(' ')[1]
-        if all_guilds[message.guild.id].users[message.author.id].last_command[0][day][int(time)]:
-            string_builder = f"Created a meeting with <@!{message.author.id}>, "
-            dt = pendulum.from_format(f'{day} {time}', 'dddd H', tz=all_guilds[message.guild.id].users[message.author.id].timezone)
-            dt = dt.in_tz("America/Toronto")
-            if dt < pendulum.now().in_tz("America/Toronto"):
-                dt = dt.add(weeks=1)
-            local_meeting = Meeting(dt)
-            all_guilds[message.guild.id].users[message.author.id].meetings.append(local_meeting)
-            for user in all_guilds[message.guild.id].users[message.author.id].last_command[1]:
-                string_builder += f'<@!{user}>, '
-                all_guilds[message.guild.id].users[user].meetings.append(local_meeting)
-            string_builder = string_builder[:-2]
-            await message.channel.send(string_builder)
+        formatted_text = format_date_dictionary(all_guilds[message.guild.id].users[message.author.id], date_dict)
+        if formatted_text.count("\n") > 1:
+            await message.channel.send(formatted_text)
         else:
-            await message.channel.send("That was not a free time.")
-    elif message.content[0:5] == '-list':
-        if message.author.id in all_guilds[message.guild.id].users:
+            await message.channel.send("No available times.")
+    else:
+        await message.channel.send("No Schedule Available.")
+
+
+@client.command(name='select',
+                help="Usage: -select [day] [time] ex. -select Monday 16",
+                brief="From your previous meeting list, select a time to do a meeting")
+async def select(ctx, day, time):
+    message = ctx.message
+    day = day.capitalize()
+    if all_guilds[message.guild.id].users[message.author.id].last_command[0][day][int(time)]:
+        string_builder = f"Created a meeting with <@!{message.author.id}>, "
+        dt = pendulum.from_format(f'{day} {time}', 'dddd H', tz=all_guilds[message.guild.id].users[message.author.id].timezone)
+        dt = dt.in_tz("America/Toronto")
+        if dt < pendulum.now().in_tz("America/Toronto"):
+            dt = dt.add(weeks=1)
+        local_meeting = Meeting(dt)
+        all_guilds[message.guild.id].users[message.author.id].meetings[local_meeting.meeting_id] = local_meeting
+        for user in all_guilds[message.guild.id].users[message.author.id].last_command[1]:
+            string_builder += f'<@!{user}>, '
+            all_guilds[message.guild.id].users[user].meetings[local_meeting.meeting_id] = local_meeting
+        string_builder = string_builder[:-2]
+        await message.channel.send(string_builder)
+    else:
+        await message.channel.send("That was not a free time.")
+
+@client.command(name="list",
+                help='Usage: -list to list all your upcoming meetings',
+                brief="List all of your upcoming meetings.")
+async def list(ctx):
+    message = ctx.message
+    if message.author.id in all_guilds[message.guild.id].users:
+        if all_guilds[message.guild.id].users[message.author.id].meetings:
+            str_builder = "```"
             for meeting in all_guilds[message.guild.id].users[message.author.id].meetings:
-                await message.channel.send(meeting.str_in_tz(all_guilds[message.guild.id].users[message.author.id].timezone))
-
-    elif message.content[0:6] == '-clear':
-        if message.author.id in all_guilds[message.guild.id].users:
-            all_guilds[message.guild.id].users[message.author.id] = []
-
-    elif message.content[0:9] == '-timezone':
-        timezone = message.content[7:].strip().split(' ')[0]
-        if len(message.content[7:].strip().split(' ')[0]) > 1:
-            await message.channel.send('Too many arguments.')
+                str_builder += all_guilds[message.guild.id].users[message.author.id].meetings[meeting].str_in_tz(all_guilds[message.guild.id].users[message.author.id].timezone) + "\n"
+            str_builder += "```"
+            await message.channel.send(str_builder)
         else:
-            if parse_timezone(timezone):
-                if message.author.id in all_guilds[message.guild.id]:
-                    all_guilds[message.guild.id].users[message.author.id].timezone = timezone
-                    await message.channel.send('Your timezone has been updated!')
-                else:
-                    all_guilds[message.guild.id].users[message.author.id] = User(message.author.id, timezone)
-                    await message.channel.send('Your timezone has been updated!')
-            else:
-                await message.channel.send('That is an invalid timezone, please consult ')
+            await message.channel.send("No meetings scheduled.")
+@client.command(name='remove',
+                help='Usage: -remove [meeting id]',
+                brief='Removes specified meeting')
+async def remove_command(ctx, meeting_id: int):
+    message = ctx.message
+    if message.author.id in all_guilds[message.guild.id].users:
+        if all_guilds[message.guild.id].users[message.author.id].remove_meeting(meeting_id):
+            await message.channel.send("Removed meeting.")
+        else:
+            await message.channel.send("Invalid meeting id.")
 
-    elif message.content[0:9] == '!commands':
-        await message.channel.send(f"**Commands**:\n"
-                                   f"**!partner @member**: create a group with you and your partner, and mark yourselves as ready to start the PAR process with another group.\n"
-                                   f"**!individual**: mark yourself as an individual and ready to start the PAR process with another group.\n"
-                                   f"**!disband**: disband your current group, and remove yourself from queue, or if you are already paired, remove yourself from the pair.\n"
-                                   f"**!groups**: show the current groups.\n"
-                                   f"**!findpartner**: *before* you start working on your worksheet, use this command to find another individual that wants to work with someone.\n"
-                                   f"**!clear**: clear groups, need administrator permission\n"
-                                   f"**!commands**: list commands\n")
+    else:
+        await message.channel.send("Not a valid user.")
+
+@client.command(name='cancel',
+                help='Usage: -cancel [meeting id]',
+                brief='Removes all users from meeting')
+async def cancel_command(ctx, meeting_id: int):
+    message = ctx.message
+    user_list = []
+    for users in all_guilds[message.guild.id].users:
+        if all_guilds[message.guild.id].users[users].remove_meeting(meeting_id):
+            user_list.append(users)
+    if user_list:
+        str_builder = f"Cancelled meeting with id {meeting_id} for users: "
+        for i in user_list:
+            str_builder += f'<@!{i}> '
+        str_builder = str_builder[:-1]
+        await message.channel.send(str_builder)
+
+
+@client.command(name="commands",
+                help='Usage: -commands',
+                brief="Returns all commands available")
+async def commands(ctx):
+    helptext = "```"
+    for command in client.commands:
+        helptext += f"-{command}: {command.brief}\n"
+    helptext+="```"
+    await ctx.send(helptext)
+
+@client.command(name='clear',
+                help='Usage: -clear',
+                brief="Clear all of your meetings (only removes you from the meetings)")
+async def clear(ctx):
+    message = ctx.message
+    if message.author.id in all_guilds[message.guild.id].users:
+        all_guilds[message.guild.id].users[message.author.id].meetings = {}
+
+@client.command(name='timezone',
+                help='Usage: -timezone [timezone]',
+                brief="Manually set your timezone. List of valid timezones: <https://github.com/yoshinoa/csc207_discord_bot/blob/main/timezones.md>")
+async def timezone(ctx, local_tz: str):
+    message = ctx.message
+    if parse_timezone(local_tz):
+        if message.author.id in all_guilds[message.guild.id].users:
+            all_guilds[message.guild.id].users[message.author.id].timezone = timezone
+            await message.channel.send('Your timezone has been updated!')
+        else:
+            all_guilds[message.guild.id].users[message.author.id] = User(message.author.id, timezone)
+            await message.channel.send('Your timezone has been updated!')
+    else:
+        await message.channel.send('That is an invalid timezone, please consult <https://github.com/yoshinoa/csc207_discord_bot/blob/main/timezones.md> for a list of valid timezones.')
+
+@client.event
+async def on_command_error(ctx, error):
+    if isinstance(error, discord.ext.commands.errors.MissingRequiredArgument):
+        await ctx.send('Missing a required argument, check usage with -help [command]')
+    if isinstance(error, discord.ext.commands.errors.CommandNotFound):
+        await ctx.send('That isn\'t a valid command, check valid commands with -commands')
+
+
+@client.event
+async def on_message(message):
+    await client.process_commands(message)
     write_file()
-
 
 
 client.run(TOKEN)

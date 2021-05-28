@@ -9,7 +9,7 @@ class User:
     timezone: str
     availability: Dict[str, Day]
     last_command: Tuple[Dict[str, Dict[int, bool]], List[int]]
-    meetings: List[Meeting]
+    meetings: Dict[int, Meeting]
 
     def __init__(self, user_id: int, timezone: str) -> None:
         self.user_id = user_id
@@ -21,7 +21,7 @@ class User:
                              'Saturday': Day('Saturday'),
                              'Sunday': Day('Sunday')}
         self.last_command = ({}, [])
-        self.meetings = []
+        self.meetings = {}
 
     def __eq__(self, other) -> bool:
         if isinstance(other, User):
@@ -59,3 +59,8 @@ class User:
                 input_vars = dt.in_tz(self.timezone).format('dddd-H').split('-')
                 local_availability[input_vars[0]].change(int(input_vars[1]), True)
 
+    def remove_meeting(self, meeting_id: int) -> bool:
+        if meeting_id in self.meetings:
+            self.meetings.pop(meeting_id)
+            return True
+        return False
