@@ -11,6 +11,7 @@ from meetings import Meeting
 import meetings
 from pendulum.tz.zoneinfo.exceptions import InvalidTimezone
 import globals
+from weekday import Day
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -30,23 +31,14 @@ def parse_timezone(timezone: str) -> str:
     except InvalidTimezone:
         return ''
 
-def localize_dictionary(user: User, input_dict: Dict[str, Dict[int, bool]]):
-    local_availability = globals.local_availability()
-    for day in input_dict:
-        for times in input_dict[day]:
-            dt = pendulum.from_format(f'{day} {times}', 'dddd H', tz="America/Toronto")
-            input_vars = dt.in_tz(user.timezone).format('dddd-H').split('-')
-            local_availability[input_vars[0]][int(input_vars[1])] = input_dict[day][times]
-    return local_availability
 
-
-def format_date_dictionary(user: User, input_dict: Dict[str, Dict[int, bool]]):
+def format_date_dictionary(user: User, input_dict: Dict[str, Day]):
     string = f"Times are in **{user.timezone}**\n```"
-    local_availability = localize_dictionary(user, input_dict)
+    local_availability = user.localize_dictionary(input_dict)
     for day in local_availability:
         times = []
-        for value in local_availability[day]:
-            if local_availability[day][value]:
+        for value in local_availability[day].times:
+            if local_availability[day].times[value]:
                 times.append(value)
         if times:
             string += day + ": "
@@ -126,16 +118,26 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
             else:
                 await message.remove_reaction(emoji, user)
 
-async def remove_all_reactions(payload, user: User):
+async def remove_all_reactions(payload, user: discord.User):
     channel = client.get_channel(payload.channel_id)
-    # for message in all_guilds[payload.guild_id].weekday_message_ids:
-    #     for message_ids in all_guilds[payload.guild_id].weekday_message_ids[message]:
-    #         local_message = await channel.fetch_message(message_ids)
-    #         for reaction in local_message.reactions:
-    #             users = await reaction.users().flatten()
-    #             if user in users:
-    #                 await local_message.remove_reaction(reaction, user)
-        print('still running')
+    local_dict = all_guilds[payload.guild_id].users[user.id].true_dict()
+    new_dict = {}
+    for x in local_dict:
+        for i in local_dict[x]:
+            if i > 20:
+                if all_guilds[payload.guild_id].weekday_message_ids[x][1] in new_dict:
+                    new_dict[all_guilds[payload.guild_id].weekday_message_ids[x][1]].append(REACTION_IDS[i])
+                else:
+                    new_dict[all_guilds[payload.guild_id].weekday_message_ids[x][1]] = [REACTION_IDS[i]]
+            else:
+                if all_guilds[payload.guild_id].weekday_message_ids[x][0] in new_dict:
+                    new_dict[all_guilds[payload.guild_id].weekday_message_ids[x][0]].append(REACTION_IDS[i])
+                else:
+                    new_dict[all_guilds[payload.guild_id].weekday_message_ids[x][0]] = [REACTION_IDS[i]]
+    for item in new_dict:
+        local_message = await channel.fetch_message(item)
+        for item2 in new_dict[item]:
+            await local_message.remove_reaction(item2, user)
 
 
 @client.event
@@ -190,7 +192,7 @@ async def meeting(context):
             await message.channel.send(f"{user.name} hasn't set their schedule.")
     if userids:
         date_dict = all_guilds[message.guild.id].users[message.author.id].compare_with(users_to_check)
-        all_guilds[message.guild.id].users[message.author.id].last_command = (localize_dictionary(all_guilds[message.guild.id].users[message.author.id], date_dict), userids)
+        all_guilds[message.guild.id].users[message.author.id].last_command = all_guilds[message.guild.id].users[message.author.id].localize_dictionary(date_dict), userids
         formatted_text = format_date_dictionary(all_guilds[message.guild.id].users[message.author.id], date_dict)
         if formatted_text.count("\n") > 1:
             await message.channel.send(formatted_text)
@@ -206,7 +208,7 @@ async def meeting(context):
 async def select(ctx, day, time):
     message = ctx.message
     day = day.capitalize()
-    if all_guilds[message.guild.id].users[message.author.id].last_command[0][day][int(time)]:
+    if all_guilds[message.guild.id].users[message.author.id].last_command[0][day].times[int(time)]:
         string_builder = f"Created a meeting with <@!{message.author.id}>, "
         dt = pendulum.from_format(f'{day} {time}', 'dddd H', tz=all_guilds[message.guild.id].users[message.author.id].timezone)
         dt = dt.in_tz("America/Toronto")
@@ -220,7 +222,7 @@ async def select(ctx, day, time):
         string_builder = string_builder[:-2]
         await message.channel.send(string_builder)
     else:
-        await message.channel.send("That was not a free time.")
+        await ctx.send("Not a free time.")
 
 @client.command(name="list",
                 help='Usage: -list to list all your upcoming meetings',
@@ -249,6 +251,20 @@ async def remove_command(ctx, meeting_id: int):
 
     else:
         await message.channel.send("Not a valid user.")
+
+@client.command(name='schedule',
+                help='Usage -schedule @user',
+                brief='Shows you the schedule of a person')
+async def schedule(ctx):
+    mention = ctx.message.mentions[0]
+    my_user = ctx.author
+    if mention.id in all_guilds[ctx.guild.id].users:
+        if my_user.id in all_guilds[ctx.guild.id].users:
+            await ctx.send(format_date_dictionary(all_guilds[ctx.guild.id].users[my_user.id], all_guilds[ctx.guild.id].users[mention.id].availability))
+        else:
+            await ctx.send(format_date_dictionary(all_guilds[ctx.guild.id].users[mention.id], all_guilds[ctx.guild.id].users[mention.id].availability))
+    else:
+        await ctx.send("User has no schedule.")
 
 @client.command(name='cancel',
                 help='Usage: -cancel [meeting id]',
@@ -284,6 +300,19 @@ async def clear(ctx):
     message = ctx.message
     if message.author.id in all_guilds[message.guild.id].users:
         all_guilds[message.guild.id].users[message.author.id].meetings = {}
+
+@client.command(name='removeuser',
+                help='Usage: -removeuser @user',
+                brief='Remove the data of a user from this server')
+async def removeuser(ctx):
+    user = ctx.message.mentions[0]
+    message = ctx.message
+    if user.id in all_guilds[ctx.guild.id].users:
+        all_guilds[ctx.guild.id].users.pop(user.id)
+        await ctx.send('Removed user from data')
+    else:
+        await ctx.send("User wasn't in data.")
+
 
 @client.command(name='timezone',
                 help='Usage: -timezone [timezone]',

@@ -1,18 +1,18 @@
 from __future__ import annotations
 from typing import Dict, List
 
-
-def check_overlap(other: List[Day]) -> Dict[int, bool]:
-    available_time = {1: True, 2: True, 3: True, 4: True, 5: True,
+def check_overlap(other: List[Day]) -> Day:
+    temp_day = Day(other[0].day_name)
+    temp_day.times = {0: True, 1: True, 2: True, 3: True, 4: True, 5: True,
                       6: True, 7: True, 8: True, 9: True, 10: True,
                       11: True, 12: True, 13: True, 14: True, 15: True,
                       16: True, 17: True, 18: True, 19: True, 20: True,
-                      21: True, 22: True, 23: True, 0: True, }
+                      21: True, 22: True, 23: True}
     for item in other:
-        for x in available_time:
-            if item.times[x] != available_time[x]:
-                available_time[x] = False
-    return available_time
+        for x in temp_day.times:
+            if item.times[x] != temp_day.times[x]:
+                temp_day.times[x] = False
+    return temp_day
 
 
 class Day:
