@@ -5,6 +5,7 @@ from itertools import count
 import pickle
 import os
 globvar = 0
+taskglob = 0
 
 def input_from_file(glob: int):
     global globvar
@@ -30,7 +31,13 @@ class Meeting:
         return False
 
     def __str__(self):
-        return self.time.format('dddd Do [of] MMMM HH:mm:ss zz')
+        strbuilder = f'ID: {self.meeting_id}'
+        strbuilder += self.time.format(' dddd Do [of] MMMM HH:mm zz')
+        strbuilder += ' with '
+        for item in self.participants:
+            strbuilder += self.participants[item].username + ", "
+        strbuilder = strbuilder[:-2]
+        return strbuilder
 
     def str_in_tz(self, timezone: str):
         local_tz = self.time.in_tz(timezone)
@@ -43,7 +50,7 @@ class Meeting:
     def remove_participant(self, user: User):
         if user.user_id in self.participants:
             self.participants.pop(user.user_id)
-            user.remove_meeting(self.meeting_id)
+            return user.remove_meeting(self.meeting_id)
 
 
     def delete_self(self):
@@ -55,13 +62,16 @@ class Meeting:
 
 class User:
     user_id: int
+    username: str
     timezone: str
     availability: Dict[str, Day]
     last_command: Tuple[Dict[str, Day], List[int]]
     meetings: Dict[int, Meeting]
+    tasks: Dict[int, Task]
 
-    def __init__(self, user_id: int, timezone: str) -> None:
+    def __init__(self, user_id: int, timezone: str, username: str) -> None:
         self.user_id = user_id
+        self.username = username
         self.timezone = timezone
         self.availability = {'Monday': Day('Monday'), 'Tuesday': Day('Tuesday'),
                              'Wednesday': Day('Wednesday'),
@@ -74,7 +84,7 @@ class User:
 
     def __eq__(self, other) -> bool:
         if isinstance(other, User):
-            if self.user_id == User.user_id:
+            if self.user_id == other.user_id:
                 return True
         elif isinstance(other, int):
             if other == self.user_id:
@@ -113,6 +123,9 @@ class User:
             self.meetings.pop(meeting_id)
             return True
         return False
+
+    def add_task(self, new_task: Task):
+        self.tasks[new_task.task_id] = new_task
 
     def add_meeting(self, meeting: Meeting):
         self.meetings[meeting.meeting_id] = meeting
@@ -180,6 +193,9 @@ class Guild:
     users: Dict[int, User]
     guild_id: int
     weekday_message_ids: Dict[str, List[int]]
+    tasks: Dict[int, Task]
+    meetings: Dict[int, Meeting]
+    channel_id: int
 
     def __init__(self, guild_id: int):
         self.guild_id = guild_id
@@ -189,6 +205,7 @@ class Guild:
         self.weekday_message_ids = {'Monday': [], 'Tuesday': [],
                                     'Wednesday': [], 'Thursday': [],
                                     'Friday': [], 'Saturday': [], 'Sunday': []}
+
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Guild):
@@ -210,9 +227,107 @@ class Guild:
         if user.user_id not in self.users:
             self.users[user.user_id] = user
 
+    def add_user_to_task(self, task: Task, user: User) -> bool:
+        if task.task_id in self.tasks:
+            task.change_assignee(user)
+            user.add_task(task)
+            return True
+        return False
+
+
     def remove_user(self, user_id: int) -> None:
         for meeting in self.meetings:
-            meeting.remove_participant(user_id)
+            self.meetings[meeting].remove_participant(self.users[user_id])
         self.users.pop(user_id)
 
+    def add_meeting(self, meeting: Meeting):
+        if meeting.meeting_id not in self.meetings:
+            self.meetings[meeting.meeting_id] = meeting
 
+    def set_channel_id(self, id: int):
+        self.channel_id = id
+
+    def verify_meetings(self):
+        if self.meetings:
+            for meetings in self.meetings:
+                if not self.meetings[meetings].participants:
+                    self.meetings.pop(meetings)
+
+    def add_task(self, new_task: Task):
+        self.tasks[new_task.task_id] = new_task
+
+    def get_tasks_completion(self, input: bool):
+        task_list = []
+        for tasks in self.tasks:
+            if self.tasks[tasks].completion_status == input:
+                task_list.append(self.tasks[tasks])
+        return task_list
+
+    def get_tasks_unassigned(self):
+        task_list = []
+        for tasks in self.tasks:
+            if self.tasks[tasks].assignee is None:
+                task_list.append(self.tasks[tasks])
+        return task_list
+    def get_tasks_user(self, user: User):
+        complete = []
+        incomplete = []
+        for tasks in self.tasks:
+            if self.tasks[tasks].assignee == user:
+                if not self.tasks[tasks].completion_status:
+                    incomplete.append(self.tasks[tasks])
+                else:
+                    complete.append(self.tasks[tasks])
+        return complete, incomplete
+
+    def show_meetings(self):
+        if self.meetings:
+            str_builder = "```"
+            for item in self.meetings:
+                str_builder += str(self.meetings[item]) + '\n'
+            str_builder += '```'
+            return str_builder
+        else:
+            return "No meetings."
+
+
+class Task:
+    assigned_at: pendulum.datetime
+    description: str
+    due_at: pendulum.datetime
+    completion_status: bool
+    assignee: User
+    assigner: User
+    task_id: int
+    task_name: str
+
+    def __init__(self, name: str, assigner: User):
+        self.due_at = None
+        self.task_name = name
+        self.assigned_at = pendulum.now(tz="EST")
+        self.description = ""
+        self.assigner = assigner
+        self.assignee = None
+        self.completion_status = False
+        global taskglob
+        self.task_id = taskglob
+        taskglob += 1
+
+    def __str__(self):
+        str_builder = f"ID: {self.task_id} {self.task_name} \n{self.description}\n"
+        if self.due_at:
+            str_builder += f"This task is due at{str(self.due_at.format(' dddd Do [of] MMMM HH:mm zz'))}\n"
+        str_builder += f"Assigned by {self.assigner.username} to {self.assignee.username} on{self.assigned_at.format(' dddd Do [of] MMMM HH:mm zz')} EST"
+        return str_builder
+
+    def change_deadline(self, new_date: pendulum.datetime):
+        self.due_at = new_date
+
+    def change_assignee(self, new_user: User):
+        self.assignee = new_user
+
+    def change_status(self, new_status: bool):
+        self.completion_status = new_status
+
+    def set_description(self, description: str):
+        self.description = description
