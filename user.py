@@ -64,3 +64,10 @@ class User:
             self.meetings.pop(meeting_id)
             return True
         return False
+
+    def true_dict(self) -> Dict[str, List[int]]:
+        new_dict = {}
+        for days in self.availability:
+            if self.availability[days].convert():
+                new_dict[days] = self.availability[days].convert()
+        return new_dict

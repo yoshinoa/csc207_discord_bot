@@ -126,6 +126,17 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
             else:
                 await message.remove_reaction(emoji, user)
 
+async def remove_all_reactions(payload, user: User):
+    channel = client.get_channel(payload.channel_id)
+    # for message in all_guilds[payload.guild_id].weekday_message_ids:
+    #     for message_ids in all_guilds[payload.guild_id].weekday_message_ids[message]:
+    #         local_message = await channel.fetch_message(message_ids)
+    #         for reaction in local_message.reactions:
+    #             users = await reaction.users().flatten()
+    #             if user in users:
+    #                 await local_message.remove_reaction(reaction, user)
+        print('still running')
+
 
 @client.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
@@ -138,6 +149,7 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
             if payload.user_id in all_guilds[payload.guild_id].users and \
                     all_guilds[payload.guild_id].users[payload.user_id].\
                     timezone == REVERSE_DICT[str(emoji)]:
+                await remove_all_reactions(payload, user)
                 all_guilds[payload.guild_id].remove_user(payload.user_id)
                 write_file()
         else:

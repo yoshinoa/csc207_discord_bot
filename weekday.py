@@ -21,11 +21,18 @@ class Day:
 
     def __init__(self, day_name: str):
         self.day_name = day_name
-        self.times = {1: False, 2: False, 3: False, 4: False, 5: False,
+        self.times = {0: False, 1: False, 2: False, 3: False, 4: False, 5: False,
                       6: False, 7: False, 8: False, 9: False, 10: False,
                       11: False, 12: False, 13: False, 14: False, 15: False,
                       16: False, 17: False, 18: False, 19: False, 20: False,
-                      21: False, 22: False, 23: False, 0: False}
+                      21: False, 22: False, 23: False}
 
     def change(self, time: int, val: bool) -> None:
         self.times[time] = val
+
+    def convert(self) -> List[int]:
+        list_builder = []
+        for x in self.times:
+            if self.times[x]:
+                list_builder.append(x)
+        return list_builder
