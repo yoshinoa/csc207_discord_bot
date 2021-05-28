@@ -314,10 +314,15 @@ class Task:
         taskglob += 1
 
     def __str__(self):
-        str_builder = f"ID: {self.task_id} {self.task_name} \n{self.description}\n"
-        if self.due_at:
-            str_builder += f"This task is due at{str(self.due_at.format(' dddd Do [of] MMMM HH:mm zz'))}\n"
-        str_builder += f"Assigned by {self.assigner.username} to {self.assignee.username} on{self.assigned_at.format(' dddd Do [of] MMMM HH:mm zz')} EST"
+        str_builder = f"ID: {self.task_id}\n {self.task_name} \n{self.description}\n"
+        if self.completion_status:
+            str_builder += f'This task is complete.\n'
+        elif self.due_at:
+            str_builder += f"This task is incomplete and due at{str(self.due_at.format(' dddd Do [of] MMMM HH:mm zz'))}\n"
+        if self.assignee:
+            str_builder += f"Assigned by {self.assigner.username} to {self.assignee.username} on{self.assigned_at.format(' dddd Do [of] MMMM HH:mm zz')}"
+        else:
+            str_builder += f"Initialized by {self.assigner.username} on{self.assigned_at.format(' dddd Do [of] MMMM HH:mm zz')}, currently unassigned."
         return str_builder
 
     def change_deadline(self, new_date: pendulum.datetime):

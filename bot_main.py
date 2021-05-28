@@ -420,7 +420,7 @@ async def task_command(ctx, modifier, *args):
             strbuilder = "```Complete:\n"
             for item in complete:
                 strbuilder += str(item) + '\n'
-            strbuilder += "Incomplete:\n"
+            strbuilder += "\nIncomplete:\n"
             for item in incomplete:
                 strbuilder += str(item) + '\n'
             strbuilder += '```'
@@ -476,6 +476,8 @@ async def show_items(ctx, modifier: str):
 #         await ctx.send('Missing a required argument, check usage with -help [command]')
 #     if isinstance(error, discord.ext.commands.errors.CommandNotFound):
 #         await ctx.send('That isn\'t a valid command, check valid commands with -commands')
+#     if isinstance(error, KeyError):
+#         await ctx.send("It's likely you haven't initalized yourself yet, set your timezone in the availability channel or type -timezone [timezones]")
 
 
 

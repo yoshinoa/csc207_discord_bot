@@ -5,7 +5,7 @@ General format is `-[task|tasks]` `<modifier>` `[args...]`
 ## task modifiers: 
 `create [task name]` creates a task with taskname and gives you the TaskID
 
-`describe [task description]` adds description to task
+`describe [TaskID] [task description]` adds description to task
 
 `assign [TaskID] [@user]` assigns the @'d user to a task
 
