@@ -16,6 +16,7 @@ intents = discord.Intents.all()
 client = commands.Bot(intents=intents, command_prefix='-')
 REACTION_IDS, REVERSE_DICT, DAYS_OF_WEEK, all_guilds = globals.init()
 
+
 def parse_timezone(timezone: str) -> str:
     '''
     Given a string, return the same string back if this str can be parsed
@@ -45,14 +46,8 @@ def format_date_dictionary(user: User, input_dict: Dict[str, Day]):
     string += '```'
     return string
 
-async def get_member(new_user, owo_client):
-    for item in owo_client.guilds:
-        test_item = await item.fetch_member(new_user.id)
-        if test_item is not None:
-            return test_item
 
-
-async def onstart(client_item):
+def onstart():
     if os.path.exists("session.pickle"):
         with open("session.pickle", 'rb') as pickle_file:
             pickle_data = pickle.load(pickle_file)
@@ -60,7 +55,6 @@ async def onstart(client_item):
         all_guilds = pickle_data['initialized_guilds']
         structures.globvar = pickle_data['globvar']
         structures.taskglob = pickle_data['taskglob']
-
 
 
 def write_file():
@@ -93,32 +87,6 @@ async def initialize_server(guild: discord.guild):
     print(f"initialized guild {guild.name}")
 
 
-@client.event
-async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
-    if client.user.id != payload.user_id:
-        channel = client.get_channel(payload.channel_id)
-        message = await channel.fetch_message(payload.message_id)
-        user = client.get_user(payload.user_id)
-        emoji = payload.emoji
-        if str(emoji) not in REVERSE_DICT:
-            await message.remove_reaction(emoji, user)
-        elif 'Select your timezone.' in message.content:
-            if payload.user_id in all_guilds[payload.guild_id].users:
-                await message.remove_reaction(emoji, user)
-            else:
-                if payload.member.nick is not None:
-                    all_guilds[payload.guild_id].add_user(User(payload.user_id, REVERSE_DICT[str(emoji)], payload.member.nick))
-                else:
-                    all_guilds[payload.guild_id].add_user(User(payload.user_id, REVERSE_DICT[str(emoji)], payload.member.display_name))
-        else:
-            if payload.user_id in all_guilds[payload.guild_id].users:
-                local_user = all_guilds[payload.guild_id].users[payload.user_id]
-                time_set = REVERSE_DICT[str(emoji)]
-                day_set = all_guilds[payload.guild_id].get_day(payload.message_id)
-                local_user.add_time(time_set, day_set)
-            else:
-                await message.remove_reaction(emoji, user)
-
 async def remove_all_reactions(payload, user: discord.User):
     try:
         guildid = payload.guild.id
@@ -148,6 +116,33 @@ async def remove_all_reactions(payload, user: discord.User):
 
 
 @client.event
+async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
+    if client.user.id != payload.user_id:
+        channel = client.get_channel(payload.channel_id)
+        message = await channel.fetch_message(payload.message_id)
+        user = client.get_user(payload.user_id)
+        emoji = payload.emoji
+        if str(emoji) not in REVERSE_DICT:
+            await message.remove_reaction(emoji, user)
+        elif 'Select your timezone.' in message.content:
+            if payload.user_id in all_guilds[payload.guild_id].users:
+                await message.remove_reaction(emoji, user)
+            else:
+                if payload.member.nick is not None:
+                    all_guilds[payload.guild_id].add_user(User(payload.user_id, REVERSE_DICT[str(emoji)], payload.member.nick))
+                else:
+                    all_guilds[payload.guild_id].add_user(User(payload.user_id, REVERSE_DICT[str(emoji)], payload.member.display_name))
+        else:
+            if payload.user_id in all_guilds[payload.guild_id].users:
+                local_user = all_guilds[payload.guild_id].users[payload.user_id]
+                time_set = REVERSE_DICT[str(emoji)]
+                day_set = all_guilds[payload.guild_id].get_day(payload.message_id)
+                local_user.add_time(time_set, day_set)
+            else:
+                await message.remove_reaction(emoji, user)
+
+
+@client.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
     channel = client.get_channel(payload.channel_id)
     message = await channel.fetch_message(payload.message_id)
@@ -172,18 +167,25 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
 
 @client.event
 async def on_ready():
-    await onstart(client)
+    onstart()
     await client.change_presence(activity=discord.Activity(name='status', details="Type !commands to see a list of commands", ))
     for server in client.guilds:
         if server.id not in all_guilds:
             await initialize_server(server)
     print(f"{client.user} has connected to discord!")
 
+@client.group(name='meeting',
+              aliases=['meetings'],
+              help='A group of commands under meeting.')
+async def meeting(ctx):
+    if ctx.invoked_subcommand is None:
+        await ctx.send('Invalid meeting command.')
 
-@client.command(name='meeting',
+
+@meeting.command(name='setup',
                 help="Usage: -meeting @user1 @user2 ex. -meeting @132ads",
                 brief="Gives meeting times for this user and the tagged other users.")
-async def meeting(context):
+async def setup(context):
     message = context.message
     users_to_check = []
     userids = []
@@ -209,7 +211,7 @@ async def meeting(context):
         await message.channel.send("No Schedule Available.")
 
 
-@client.command(name='select',
+@meeting.command(name='select',
                 help="Usage: -select [day] [time] ex. -select Monday 16",
                 brief="From your previous meeting list, select a time to do a meeting")
 async def select(ctx, day, time):
@@ -232,10 +234,11 @@ async def select(ctx, day, time):
     else:
         await ctx.send("Not a free time.")
 
-@client.command(name="list",
+
+@meeting.command(name="list",
                 help='Usage: -list to list all your upcoming meetings',
                 brief="List all of your upcoming meetings.")
-async def list(ctx):
+async def command_list(ctx):
     message = ctx.message
     if message.author.id in all_guilds[message.guild.id].users:
         if all_guilds[message.guild.id].users[message.author.id].meetings:
@@ -246,7 +249,9 @@ async def list(ctx):
             await message.channel.send(str_builder)
         else:
             await message.channel.send("No meetings scheduled.")
-@client.command(name='leave',
+
+
+@meeting.command(name='leave',
                 help='Usage: -leave [meeting id]',
                 brief='Removes specified meeting')
 async def remove_command(ctx, meeting_id: int):
@@ -260,24 +265,8 @@ async def remove_command(ctx, meeting_id: int):
     else:
         await message.channel.send("You aren't a registered user.")
 
-@client.command(name='schedule',
-                help='Usage -schedule @user',
-                brief='Shows you the schedule of a person')
-async def schedule(ctx):
-    try:
-        mention = ctx.message.mentions[0]
-        my_user = ctx.author
-        if mention.id in all_guilds[ctx.guild.id].users:
-            if my_user.id in all_guilds[ctx.guild.id].users:
-                await ctx.send(format_date_dictionary(all_guilds[ctx.guild.id].users[my_user.id], all_guilds[ctx.guild.id].users[mention.id].availability))
-            else:
-                await ctx.send(format_date_dictionary(all_guilds[ctx.guild.id].users[mention.id], all_guilds[ctx.guild.id].users[mention.id].availability))
-        else:
-            await ctx.send("User has no schedule.")
-    except IndexError:
-        await ctx.send("Not enough arguments. Check -help schedule for help.")
 
-@client.command(name='cancel',
+@meeting.command(name='cancel',
                 help='Usage: -cancel [meeting id]',
                 brief='Removes all users from meeting')
 async def cancel_command(ctx, meeting_id: int):
@@ -294,17 +283,25 @@ async def cancel_command(ctx, meeting_id: int):
         await message.channel.send(str_builder)
 
 
-@client.command(name="commands",
-                help='Usage: -commands',
-                brief="Returns all commands available")
-async def commands(ctx):
-    helptext = "```"
-    for command in client.commands:
-        helptext += f"-{command}: {command.brief}\n"
-    helptext+="```"
-    await ctx.send(helptext)
+@meeting.command(name='schedule',
+                help='Usage -schedule @user',
+                brief='Shows you the schedule of a person')
+async def schedule(ctx):
+    try:
+        mention = ctx.message.mentions[0]
+        my_user = ctx.author
+        if mention.id in all_guilds[ctx.guild.id].users:
+            if my_user.id in all_guilds[ctx.guild.id].users:
+                await ctx.send(format_date_dictionary(all_guilds[ctx.guild.id].users[my_user.id], all_guilds[ctx.guild.id].users[mention.id].availability))
+            else:
+                await ctx.send(format_date_dictionary(all_guilds[ctx.guild.id].users[mention.id], all_guilds[ctx.guild.id].users[mention.id].availability))
+        else:
+            await ctx.send("User has no schedule.")
+    except IndexError:
+        await ctx.send("Not enough arguments. Check -help schedule for help.")
 
-@client.command(name='clear',
+
+@meeting.command(name='clear',
                 help='Usage: -clear',
                 brief="Clear all of your meetings (only removes you from the meetings)")
 async def clear(ctx):
@@ -315,6 +312,18 @@ async def clear(ctx):
         await ctx.send('Removed from all meetings.')
     else:
         await ctx.send('Not a registered user')
+
+
+@client.command(name="commands",
+                help='Usage: -commands',
+                brief="Returns all commands available")
+async def commands(ctx):
+    helptext = "```"
+    for command in client.commands:
+        helptext += f"-{command}: {command.brief}\n"
+    helptext+="```"
+    await ctx.send(helptext)
+
 
 @client.command(name='removeuser',
                 help='Usage: -removeuser @user',
@@ -327,6 +336,9 @@ async def removeuser(ctx):
         await ctx.send('Removed user from data')
     else:
         await ctx.send("User wasn't in data.")
+
+
+
 
 @client.command(name='task',
                 help='Modifiers: create, describe, assign, deadline, complete, incomplete, show (complete, )',

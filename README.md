@@ -1,7 +1,25 @@
 # csc207_discord_bot
 
+# meeting function use
+General format is `-[meeting|meetings]` `<modifier>` `[args...]`
+## meeting modifiers:
+`setup @user1 Optional[@user2 @user3...]` Gives meeting times for this user and the tagged other users, must use this before -select.
+
+`select [day] [time]` From your previous meeting list, select a time to do a meeting -select Monday 16
+
+`leave [MeetingID]` Removes you from specified meeting
+
+`cancel [MeetingID]` Cancels specified meeting
+
+`list` List all of **your** upcoming meetings.
+
+`clear` Clears all your upcoming meetings
+
+
+
 # task function use
 General format is `-[task|tasks]` `<modifier>` `[args...]`
+
 ## task modifiers: 
 `create [task name]` creates a task with taskname and gives you the TaskID
 
@@ -17,7 +35,6 @@ General format is `-[task|tasks]` `<modifier>` `[args...]`
 
 `show <all|complete|incomplete|me|user|unassigned> Optional[args...]` gives you a list of tasks with the arguments passed in. `user` argument requires a `@user`.
 
-``
 # planned features
 * ~~add tasks to shared board~~
 * ~~tasks have properties to help organize (see below)~~
