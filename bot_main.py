@@ -462,7 +462,8 @@ async def timezone(ctx, local_tz: str):
                 brief='Show a list of tasks or meetings for this server')
 async def show_items(ctx, modifier: str):
     if modifier in ('tasks', 'Tasks'):
-        pass
+        task_list = all_guilds[ctx.guild.id].get_tasks_completion(True) + all_guilds[ctx.guild.id].get_tasks_completion(False)
+        await ctx.send(task_list_to_string(task_list))
     if modifier in ('meetings', 'Meetings'):
         await ctx.send(all_guilds[ctx.guild.id].show_meetings())
     else:
