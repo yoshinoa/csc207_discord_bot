@@ -196,6 +196,7 @@ class Guild:
     tasks: Dict[int, Task]
     meetings: Dict[int, Meeting]
     channel_id: int
+    timezone_id: int
 
     def __init__(self, guild_id: int):
         self.guild_id = guild_id
@@ -222,6 +223,9 @@ class Guild:
 
     def add_message_id(self, new_id: int, day: str) -> None:
         self.weekday_message_ids[day].append(new_id)
+
+    def set_timezone_id(self, new_id: int):
+        self.timezone_id = new_id
 
     def add_user(self, user: User) -> None:
         if user.user_id not in self.users:
@@ -300,6 +304,7 @@ class Task:
     assigner: User
     task_id: int
     task_name: str
+    completed_on: pendulum.datetime
 
     def __init__(self, name: str, assigner: User):
         self.due_at = None
@@ -309,20 +314,23 @@ class Task:
         self.assigner = assigner
         self.assignee = None
         self.completion_status = False
+        self.completed_on = None
         global taskglob
         self.task_id = taskglob
         taskglob += 1
 
     def __str__(self):
-        str_builder = f"ID: {self.task_id}\n {self.task_name} \n{self.description}\n"
         if self.completion_status:
-            str_builder += f'This task is complete.\n'
-        elif self.due_at:
-            str_builder += f"This task is incomplete and due at{str(self.due_at.format(' dddd Do [of] MMMM HH:mm zz'))}\n"
-        if self.assignee:
-            str_builder += f"Assigned by {self.assigner.username} to {self.assignee.username} on{self.assigned_at.format(' dddd Do [of] MMMM HH:mm zz')}"
+            loc_completion = f"COMPLETE AS OF {self.completed_on.format('D-MM HH:mm zz')}"
         else:
-            str_builder += f"Initialized by {self.assigner.username} on{self.assigned_at.format(' dddd Do [of] MMMM HH:mm zz')}, currently unassigned."
+            loc_completion = 'INCOMPLETE'
+        str_builder = f"ID: {self.task_id}, {loc_completion}\nNAME: {self.task_name}\nDESCRIPTION: {self.description}\n"
+        if not self.completion_status and self.due_at:
+            str_builder += f"This task is incomplete and due at{str(self.due_at.format('D-MM HH:mm zz'))}\n"
+        if self.assignee:
+            str_builder += f"Assigned by {self.assigner.username} to {self.assignee.username} on{self.assigned_at.format('D-MM HH:mm zz')}"
+        else:
+            str_builder += f"Initialized by {self.assigner.username} on {self.assigned_at.format('D-MM HH:mm zz')}, currently unassigned."
         return str_builder
 
     def change_deadline(self, new_date: pendulum.datetime):
@@ -332,6 +340,10 @@ class Task:
         self.assignee = new_user
 
     def change_status(self, new_status: bool):
+        if new_status:
+            self.completed_on = pendulum.now(tz="EST")
+        else:
+            self.completed_on = None
         self.completion_status = new_status
 
     def set_description(self, description: str):
