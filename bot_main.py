@@ -10,32 +10,30 @@ import structures
 from pendulum.tz.zoneinfo.exceptions import InvalidTimezone
 import globals
 
-help_command = commands.DefaultHelpCommand(no_category='Commands',
-                                           aliases=['-commands'])
+
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 intents = discord.Intents.all()
-client = commands.Bot(intents=intents, command_prefix='-',
-                      help_command=help_command)
+client = commands.Bot(intents=intents, command_prefix='-')
 REACTION_IDS, REVERSE_DICT, DAYS_OF_WEEK, all_guilds = globals.init()
 
 
-def parse_timezone(timezone: str) -> str:
-    '''
+def parse_timezone(loc_time: str) -> str:
+    """
     Given a string, return the same string back if this str can be parsed
     as a timezone
-    '''
+    """
     try:
         now = pendulum.now("EST")
-        now.in_timezone(timezone)
-        return timezone
+        now.in_timezone(loc_time)
+        return loc_time
     except InvalidTimezone:
         return ''
 
 
-def format_date_dictionary(user: User, input_dict: Dict[str, Day]):
-    string = f"Times are in **{user.timezone}**\n```"
-    local_availability = user.localize_dictionary(input_dict)
+def format_date_dictionary(local_user: User, input_dict: Dict[str, Day]):
+    string = f"Times are in **{local_user.timezone}**\n```"
+    local_availability = local_user.localize_dictionary(input_dict)
     for day in local_availability:
         times = []
         for value in local_availability[day].times:
@@ -73,13 +71,16 @@ def task_list_to_string(task_list: List[Task]) -> str:
     for item in task_list:
         strbuilder += str(item) + "\n"
     strbuilder += '```'
-    return strbuilder
+    if strbuilder == "``````":
+        return "No tasks."
+    else:
+        return strbuilder
 
 
 async def initialize_server(guild: discord.guild):
     new_guild = Guild(guild.id)
     overwrites = {
-        guild.default_role: discord.PermissionOverwrite(send_messages=False)}
+        guild.default_role: discord.PermissionOverwrite(send_messages=False, read_messages=False)}
     channel = await guild.create_text_channel('availability',
                                               overwrites=overwrites)
     new_guild.set_channel_id(channel.id)
@@ -101,21 +102,22 @@ async def initialize_server(guild: discord.guild):
             await message.add_reaction(REACTION_IDS[x])
         await message.add_reaction(REACTION_IDS[0])
     all_guilds[guild.id] = new_guild
+    await channel.set_permissions(guild.default_role, read_messages=True)
     write_file()
     print(f"initialized guild {guild.name}")
 
 
-async def remove_all_reactions(payload, user: discord.User):
+async def remove_all_reactions(payload, local_user: discord.User):
     remove_var = False
     try:
         guildid = payload.guild.id
         channel = client.get_channel(all_guilds[guildid].channel_id)
-        local_dict = all_guilds[payload.guild.id].users[user.id].true_dict()
+        local_dict = all_guilds[payload.guild.id].users[local_user.id].true_dict()
         remove_var = True
     except:
         guildid = payload.guild_id
         channel = client.get_channel(payload.channel_id)
-        local_dict = all_guilds[payload.guild_id].users[user.id].true_dict()
+        local_dict = all_guilds[payload.guild_id].users[local_user.id].true_dict()
     new_dict = {}
     for x in local_dict:
         for i in local_dict[x]:
@@ -136,15 +138,15 @@ async def remove_all_reactions(payload, user: discord.User):
                     new_dict[all_guilds[guildid].weekday_message_ids[x][0]] = [
                         REACTION_IDS[i]]
     if remove_var:
-        if all_guilds[guildid].users[user.id].timezone in REACTION_IDS:
+        if all_guilds[guildid].users[local_user.id].timezone in REACTION_IDS:
             timezone_message = await channel.fetch_message(
                 all_guilds[guildid].timezone_id)
             await timezone_message.remove_reaction(
-                REACTION_IDS[all_guilds[guildid].users[user.id].timezone], user)
+                REACTION_IDS[all_guilds[guildid].users[local_user.id].timezone], local_user)
     for item in new_dict:
         local_message = await channel.fetch_message(item)
         for item2 in new_dict[item]:
-            await local_message.remove_reaction(item2, user)
+            await local_message.remove_reaction(item2, local_user)
 
 
 @client.event
@@ -152,13 +154,13 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     if client.user.id != payload.user_id:
         channel = client.get_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
-        user = client.get_user(payload.user_id)
+        actual_user = client.get_user(payload.user_id)
         emoji = payload.emoji
         if str(emoji) not in REVERSE_DICT:
-            await message.remove_reaction(emoji, user)
+            await message.remove_reaction(emoji, actual_user)
         elif 'Select your timezone.' in message.content:
             if payload.user_id in all_guilds[payload.guild_id].users:
-                await message.remove_reaction(emoji, user)
+                await message.remove_reaction(emoji, actual_user)
             else:
                 if payload.member.nick is not None:
                     all_guilds[payload.guild_id].add_user(
@@ -176,21 +178,21 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
                     payload.message_id)
                 local_user.add_time(time_set, day_set)
             else:
-                await message.remove_reaction(emoji, user)
+                await message.remove_reaction(emoji, actual_user)
 
 
 @client.event
 async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
     channel = client.get_channel(payload.channel_id)
     message = await channel.fetch_message(payload.message_id)
-    user = client.get_user(payload.user_id)
+    actual_user = client.get_user(payload.user_id)
     emoji = payload.emoji
     if str(emoji) in REVERSE_DICT:
         if 'Select your timezone.' in message.content:
             if payload.user_id in all_guilds[payload.guild_id].users and \
                     all_guilds[payload.guild_id].users[payload.user_id]. \
-                            timezone == REVERSE_DICT[str(emoji)]:
-                await remove_all_reactions(payload, user)
+                    timezone == REVERSE_DICT[str(emoji)]:
+                await remove_all_reactions(payload, actual_user)
                 all_guilds[payload.guild_id].remove_user(payload.user_id)
                 write_file()
         else:
@@ -206,8 +208,7 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
 @client.event
 async def on_ready():
     onstart()
-    await client.change_presence(activity=discord.Activity(name='status',
-                                                           details="Type !commands to see a list of commands", ))
+    await client.change_presence(activity=discord.Game(name="-help"))
     for server in client.guilds:
         if server.id not in all_guilds:
             await initialize_server(server)
@@ -216,7 +217,7 @@ async def on_ready():
 
 @client.group(name='meeting',
               aliases=['meetings'],
-              help='A group of commands for meeting.')
+              help='perform various actions with meetings, type -help meeting/meetings for more info.')
 async def meeting(ctx):
     if ctx.invoked_subcommand is None:
         await ctx.send('Invalid meeting command.')
@@ -234,11 +235,11 @@ async def setup(context):
     except IndexError:
         await message.channel.send(
             f"Input did not contain another user, please @ them.")
-    for user in message.mentions:
-        if message.guild.id in all_guilds and user.id in all_guilds[
-            message.guild.id].users:
-            users_to_check.append(all_guilds[message.guild.id].users[user.id])
-            userids.append(user.id)
+    for local_user in message.mentions:
+        if message.guild.id in all_guilds and local_user.id in \
+                all_guilds[message.guild.id].users:
+            users_to_check.append(all_guilds[message.guild.id].users[local_user.id])
+            userids.append(local_user.id)
         else:
             await message.channel.send(
                 f"{user.name} hasn't set their schedule.")
@@ -264,8 +265,8 @@ async def setup(context):
 async def select(ctx, day, time):
     message = ctx.message
     day = day.capitalize()
-    if all_guilds[message.guild.id].users[message.author.id].last_command[0][
-        day].times[int(time)]:
+    if all_guilds[message.guild.id].users[message.author.id].\
+            last_command[0][day].times[int(time)]:
         string_builder = f"Created a meeting with <@!{message.author.id}>, "
         dt = pendulum.from_format(f'{day} {time}', 'dddd H',
                                   tz=all_guilds[message.guild.id].users[
@@ -277,12 +278,12 @@ async def select(ctx, day, time):
         local_meeting.add_participant(
             all_guilds[message.guild.id].users[message.author.id])
         all_guilds[message.guild.id].add_meeting(local_meeting)
-        for user in \
+        for local_user in \
                 all_guilds[message.guild.id].users[
                     message.author.id].last_command[1]:
-            string_builder += f'<@!{user}>, '
+            string_builder += f'<@!{local_user}>, '
             local_meeting.add_participant(
-                all_guilds[message.guild.id].users[user])
+                all_guilds[message.guild.id].users[local_user])
         string_builder = string_builder[:-2]
         await message.channel.send(string_builder)
     else:
@@ -297,12 +298,12 @@ async def command_list(ctx):
     if message.author.id in all_guilds[message.guild.id].users:
         if all_guilds[message.guild.id].users[message.author.id].meetings:
             str_builder = "```"
-            for meeting in all_guilds[message.guild.id].users[
+            for local_meeting in all_guilds[message.guild.id].users[
                 message.author.id].meetings:
                 str_builder += \
                     all_guilds[message.guild.id].users[
                         message.author.id].meetings[
-                        meeting].str_in_tz(all_guilds[message.guild.id].users[
+                        local_meeting].str_in_tz(all_guilds[message.guild.id].users[
                                                message.author.id].timezone) + "\n"
             str_builder += "```"
             await message.channel.send(str_builder)
@@ -331,10 +332,10 @@ async def remove_command(ctx, meeting_id: int):
                  brief='Removes all users from meeting')
 async def cancel_command(ctx, meeting_id: int):
     message = ctx.message
-    meeting = all_guilds[ctx.guild.id].meetings[meeting_id]
+    local_meeting = all_guilds[ctx.guild.id].meetings[meeting_id]
     user_list = meeting.return_user_ids()
     all_guilds[ctx.guild.id].meetings.pop(meeting_id)
-    meeting.delete_self()
+    local_meeting.delete_self()
     if user_list:
         str_builder = f"Cancelled meeting with id {meeting_id} for users: "
         for i in user_list:
@@ -392,10 +393,10 @@ async def clear(ctx):
                 brief='Usage: -removeuser @user')
 @commands.has_permissions(administrator=True)
 async def removeuser(ctx):
-    user = ctx.message.mentions[0]
-    if user.id in all_guilds[ctx.guild.id].users:
-        await remove_all_reactions(ctx, user)
-        all_guilds[ctx.guild.id].remove_user(user.id)
+    local_user = ctx.message.mentions[0]
+    if local_user.id in all_guilds[ctx.guild.id].users:
+        await remove_all_reactions(ctx, local_user)
+        all_guilds[ctx.guild.id].remove_user(local_user.id)
         await ctx.send('Removed user from data')
     else:
         await ctx.send("User wasn't in data.")
@@ -537,12 +538,12 @@ async def incomplete(ctx):
               help='Shows all tasks assigned to @user')
 async def user(ctx):
     local_user = all_guilds[ctx.guild.id].users[ctx.message.mentions[0].id]
-    complete, incomplete = all_guilds[ctx.guild.id].get_tasks_user(local_user)
+    finished, unfinished = all_guilds[ctx.guild.id].get_tasks_user(local_user)
     strbuilder = "```Complete:\n"
-    for item in complete:
+    for item in finished:
         strbuilder += str(item) + '\n'
     strbuilder += "Incomplete:\n"
-    for item in incomplete:
+    for item in unfinished:
         strbuilder += str(item) + '\n'
     strbuilder += '```'
     await ctx.send(strbuilder)
@@ -589,18 +590,38 @@ async def timezone(ctx, local_tz: str):
             'That is an invalid timezone, please consult <https://github.com/yoshinoa/csc207_discord_bot/blob/main/timezones.md> for a list of valid timezones.')
 
 
-@client.command(name='dump',
+@client.command(name='info',
                 help='Show a list of tasks or meetings for this server',
-                brief='Usage: -dump [modifier], modifier can be tasks or meetings')
+                brief='Usage: -info [modifier], modifier can be tasks or meetings')
 async def dump_items(ctx, modifier: str):
     if modifier in ('tasks', 'Tasks'):
         task_list = all_guilds[ctx.guild.id].get_tasks_completion(True) + \
                     all_guilds[ctx.guild.id].get_tasks_completion(False)
         await ctx.send(task_list_to_string(task_list))
     elif modifier in ('meetings', 'Meetings'):
+
         await ctx.send(all_guilds[ctx.guild.id].show_meetings())
     else:
         await ctx.send("Invalid modifier.")
+
+
+@client.command(name='missing',
+                help='Shows all the users without a schedule on the server.',
+                brief='Usage: -missing')
+async def list_users(ctx):
+    non_user_list = "```"
+    for users in ctx.guild.members:
+        if users.id != client.user.id and users.id not in all_guilds[ctx.guild.id].users:
+            non_user_list += users.display_name + "\n"
+    non_user_list += '```'
+    await ctx.send(non_user_list)
+
+
+@client.command(name='github',
+                help='https://github.com/yoshinoa/csc207_discord_bot/blob/main/README.md',
+                brief='https://github.com/yoshinoa/csc207_discord_bot/blob/main/README.md')
+async def lol(ctx):
+    await ctx.send('<https://github.com/yoshinoa/csc207_discord_bot/blob/main/README.md>')
 
 
 @client.event

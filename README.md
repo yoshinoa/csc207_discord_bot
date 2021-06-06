@@ -1,11 +1,26 @@
 # csc207_discord_bot
+# general commands
+`-info [modifier]` modifier can be tasks or meetings
+
+`-meeting` (cannot be used by itself) perform various actions with meetings, look below for more information
+
+`-missing` See members that have yet to set up their timetable
+
+`-removeuser @user` Remove a users data.
+
+`-task` (cannot be used by itself) perform various actions with tasks, look below for more information
+
+`-timezone [timezone]` Manually set a timezone for yourself, check valid timezones at https://github.com/yoshinoa/csc207_discord_bot/blob/main/timezones.md
+
+
+
 
 # meeting function use
 General format is `-[meeting|meetings]` `<modifier>` `[args...]`
 ## meeting modifiers:
 `setup @user1 Optional[@user2 @user3...]` Gives meeting times for this user and the tagged other users, must use this before -select.
 
-`select [day] [time]` From your previous meeting list, select a time to do a meeting -select Monday 16
+`select [day] [time]` **REQUIRES SETUP TO BE RUN** From your previous meeting list, select a time to do a meeting -select Monday 16
 
 `leave [MeetingID]` Removes you from specified meeting
 

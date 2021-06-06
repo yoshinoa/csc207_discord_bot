@@ -52,7 +52,6 @@ class Meeting:
             self.participants.pop(user.user_id)
             return user.remove_meeting(self.meeting_id)
 
-
     def delete_self(self):
         for user in self.participants:
             self.participants[user].remove_meeting(self.meeting_id)
@@ -90,6 +89,9 @@ class User:
             if other == self.user_id:
                 return True
         return False
+
+    def get_mention(self) -> str:
+        return f'<@{self.user_id}>'
 
     def add_time(self, time: int, day: str) -> None:
         dt = pendulum.from_format(f'{day} {time}', 'dddd H', tz=self.timezone)
