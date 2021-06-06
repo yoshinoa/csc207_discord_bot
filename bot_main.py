@@ -215,6 +215,13 @@ async def on_ready():
     print(f"{client.user} has connected to discord!")
 
 
+@client.event
+async def on_guild_join(guild):
+    await initialize_server(guild)
+    write_file()
+
+
+
 @client.group(name='meeting',
               aliases=['meetings'],
               help='perform various actions with meetings, type -help meeting/meetings for more info.')
