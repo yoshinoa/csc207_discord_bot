@@ -89,7 +89,7 @@ async def initialize_server(guild: discord.guild):
         f'**Select your timezone.** If your timezone isn\'t here use the command -timezone (your timezone)')
     new_guild.set_timezone_id(message.id)
     for TZ in ['America/Toronto', 'America/Vancouver', 'Asia/Tokyo',
-               'Asia/Seoul', 'Asia/Shanghai']:
+               'Asia/Seoul', 'Asia/Shanghai', 'Canada/Central']:
         await message.add_reaction(REACTION_IDS[TZ])
     for days in DAYS_OF_WEEK:
         message = await channel.send(days[0])
@@ -151,7 +151,7 @@ async def remove_all_reactions(payload, local_user: discord.User):
 
 @client.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
-    if client.user.id != payload.user_id:
+    if client.user.id != payload.user_id and all_guilds[payload.guild_id].channel_id == payload.channel_id:
         channel = client.get_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
         actual_user = client.get_user(payload.user_id)
