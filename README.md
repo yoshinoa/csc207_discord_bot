@@ -1,4 +1,14 @@
 # csc207_discord_bot
+
+# setup
+run `pip install -r requirements.txt`
+
+create a .env file in the format 
+```
+# .env
+DISCORD_TOKEN=YOUR_TOKEN_HERE
+```
+
 # general commands
 `-info [modifier]` modifier can be tasks or meetings
 
