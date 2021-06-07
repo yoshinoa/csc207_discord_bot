@@ -19,7 +19,7 @@ def init() -> Tuple[Dict[Union[int, str], str], Dict[str, Union[int, str]], List
                     'Asia/Tokyo': '<:JST:847460791737122877>',
                     'Asia/Seoul': '<:KST:847460792001495120>',
                     'Asia/Shanghai': '<:BJT:851352478452285480>',
-                    'Canada/Central': '<:CST:851353077184462848>'}
+                    'Canada/Central': '<:CST:847460791900962826>'}
     REVERSE_DICT = {'<:1_:847420709008572436>': 1, '<:2_:847421951786090516>': 2,
                     '<:3_:847421951593152543>': 3, '<:4_:847421951843893249>': 4,
                     '<:5_:847421951978635304>': 5, '<:6_:847421953652555816>': 6,
@@ -37,7 +37,7 @@ def init() -> Tuple[Dict[Union[int, str], str], Dict[str, Union[int, str]], List
                     '<:JST:847460791737122877>': 'Asia/Tokyo',
                     '<:KST:847460792001495120>': 'Asia/Seoul',
                     '<:BJT:851352478452285480>': 'Asia/Shanghai',
-                    '<:CST:851353077184462848>': 'Canada/Central'}
+                    '<:CST:847460791900962826>': 'Canada/Central'}
     DAYS_OF_WEEK = [('Monday', 'Monday cont.'), ('Tuesday', 'Tuesday cont.'),
                     ('Wednesday', 'Wednesday cont.'), ('Thursday', 'Thursday cont'),
                     ('Friday', 'Friday cont.'), ('Saturday', 'Saturday cont.'),

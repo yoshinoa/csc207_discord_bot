@@ -230,6 +230,26 @@ async def meeting(ctx):
         await ctx.send('Invalid meeting command.')
 
 
+@meeting.command(name='create',
+                 help='manually create a meeting in EST',
+                 brief='usage: -create MM-DD HH')
+async def create_meeting(context, date: str, time: str):
+    if context.message.author.id in all_guilds[context.guild.id].users:
+        message = context.message
+        date = pendulum.from_format(f'{date} {time}', 'MM-DD HH', tz="EST")
+        string_builder = f"Created a meeting with <@!{message.author.id}>."
+        if date < pendulum.now().in_tz("America/Toronto"):
+            await context.send('Invalid time.')
+        local_meeting = Meeting(date)
+        local_meeting.add_participant(
+            all_guilds[message.guild.id].users[message.author.id])
+        all_guilds[message.guild.id].add_meeting(local_meeting)
+        string_builder += f' ID: {local_meeting.meeting_id}'
+        await context.send(string_builder)
+    else:
+        await context.send('Please set your schedule before creating meetings.')
+
+
 @meeting.command(name='setup',
                  help="Usage: -meeting @user1 @user2 ex. -meeting @132ads",
                  brief="Gives meeting times for this user and the tagged other users.")
@@ -292,6 +312,7 @@ async def select(ctx, day, time):
             local_meeting.add_participant(
                 all_guilds[message.guild.id].users[local_user])
         string_builder = string_builder[:-2]
+        string_builder += f' ID: {local_meeting.meeting_id}.'
         await message.channel.send(string_builder)
     else:
         await ctx.send("Not a free time.")
@@ -340,7 +361,7 @@ async def remove_command(ctx, meeting_id: int):
 async def cancel_command(ctx, meeting_id: int):
     message = ctx.message
     local_meeting = all_guilds[ctx.guild.id].meetings[meeting_id]
-    user_list = meeting.return_user_ids()
+    user_list = local_meeting.return_user_ids()
     all_guilds[ctx.guild.id].meetings.pop(meeting_id)
     local_meeting.delete_self()
     if user_list:

@@ -30,6 +30,8 @@ General format is `-[meeting|meetings]` `<modifier>` `[args...]`
 
 `clear` Clears all your upcoming meetings
 
+`create MM-DD HH` manually create a meeting.
+
 
 
 # task function use
