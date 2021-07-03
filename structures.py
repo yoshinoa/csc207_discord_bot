@@ -331,7 +331,7 @@ class Task:
             loc_completion = 'INCOMPLETE'
         str_builder = f"ID: {self.task_id}, {loc_completion}\nNAME: {self.task_name}\nDESCRIPTION: {self.description}\n"
         if not self.completion_status and self.due_at:
-            str_builder += f"This task is incomplete and due at{str(self.due_at.format('D-MM HH:mm zz'))}\n"
+            str_builder += f"This task is incomplete and due at {str(self.due_at.format('D-MM HH:mm zz'))}\n"
         if self.assignee:
             str_builder += f"Assigned by {self.assigner.username} to "
             for user in self.assignee:

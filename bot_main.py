@@ -539,18 +539,22 @@ async def assign(ctx, taskid: int):
 
 
 @task_group.command(name='deadline',
-                    help='`deadline [TaskID] [YYYY-M-D] [H]` adds a deadline '
+                    help='`deadline [YYYY-M-D] [H] [TaskIds Seperated by space]` adds a deadline '
                          'to task')
-async def deadline(ctx, taskid: int, date: str, time: str):
+async def deadline(ctx, date: str, time: str, *args):
     deadline_date = pendulum.from_format(f'{date} {time}', 'YYYY-M-D H',
                                          tz='est')
-    if taskid in all_guilds[ctx.guild.id].tasks:
-        all_guilds[ctx.guild.id].tasks[taskid].change_deadline(deadline_date)
-        await ctx.send(
-            f"Deadline successfully set to "
-            f"{deadline_date.format(' dddd Do [of] MMMM HH:mm zz')}")
-    else:
-        await ctx.send("Invalid task id.")
+    task_ids = []
+    for item in args:
+        task_ids.append(int(item))
+    for taskid in task_ids:
+        if taskid in all_guilds[ctx.guild.id].tasks:
+            all_guilds[ctx.guild.id].tasks[taskid].change_deadline(deadline_date)
+            await ctx.send(
+                f"Deadline successfully set to "
+                f"{deadline_date.format(' dddd Do [of] MMMM HH:mm zz')}")
+        else:
+            await ctx.send("Invalid task id.")
 
 
 @task_group.command(name='complete',
