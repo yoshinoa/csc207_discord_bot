@@ -69,7 +69,7 @@ def write_file():
 def task_list_to_string(task_list: List[Task]) -> str:
     strbuilder = "```"
     for item in task_list:
-        strbuilder += str(item) + "\n"
+        strbuilder += str(item) + "\n\n"
     strbuilder += '```'
     if strbuilder == "``````":
         return "No tasks."
@@ -248,6 +248,24 @@ async def create_meeting(context, date: str, time: str):
         await context.send(string_builder)
     else:
         await context.send('Please set your schedule before creating meetings.')
+
+
+@meeting.command(name='invite',
+                 help='invite users to a meeting',
+                 brief='usage: -invite meetingID @user1 @user2')
+async def invite_meeting(context, meetingID: int, *args):
+    message = context.message
+    if len(message.mentions) >= 1:
+        for local_user in message.mentions:
+            if local_user.id not in all_guilds[message.guild.id].users:
+                await context.send("Not a registered user.")
+            else:
+                all_guilds[message.guild.id].users[local_user.id].add_meeting(all_guilds[message.guild.id].meetings[meetingID])
+                all_guilds[message.guild.id].meetings[meetingID].add_participant(all_guilds[message.guild.id].users[local_user.id])
+                await context.send("Added user to meeting!")
+    else:
+        await context.send('No users specified.')
+
 
 
 @meeting.command(name='setup',
@@ -440,7 +458,7 @@ async def task_group(ctx):
 
 
 @task_group.command(name='create',
-                    help='create [task name]` creates a task with taskname '
+                    help='create [task name]` creates atask  with taskname '
                          'and gives you the TaskID')
 async def create(ctx, *args):
     flatten = []
@@ -451,6 +469,16 @@ async def create(ctx, *args):
     localtask = Task(name, assigner)
     all_guilds[ctx.guild.id].add_task(localtask)
     await ctx.send(f"Task with TaskID **{localtask.task_id}** was created")
+
+@task_group.command(name='delete',
+                    help='delete [task id]')
+async def delete(ctx, taskid: int):
+    curr_guild = all_guilds[ctx.guild.id]
+    task = curr_guild.tasks[taskid]
+    for user in task.assignee:
+        del user.tasks[taskid]
+    curr_guild.remove_task(taskid)
+    await ctx.send("Deleted task!")
 
 
 @task_group.command(name='describe',
@@ -657,6 +685,8 @@ async def on_command_error(ctx, error):
     if isinstance(error, discord.ext.commands.errors.MissingRequiredArgument):
         await ctx.send(
             'Missing a required argument, check usage with -help [command]')
+    elif isinstance(error, discord.ext.commands.errors.BadArgument):
+        await ctx.send("Invalid argument, check usage with -help [command]")
     elif isinstance(error, discord.ext.commands.errors.CommandNotFound):
         await ctx.send(
             'That isn\'t a valid command, check valid commands with -help')

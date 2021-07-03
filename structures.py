@@ -262,6 +262,9 @@ class Guild:
     def add_task(self, new_task: Task):
         self.tasks[new_task.task_id] = new_task
 
+    def remove_task(self, taskID: int):
+        self.tasks.pop(taskID, None)
+
     def get_tasks_completion(self, input: bool):
         task_list = []
         for tasks in self.tasks:
@@ -302,7 +305,7 @@ class Task:
     description: str
     due_at: pendulum.datetime
     completion_status: bool
-    assignee: User
+    assignee: List[User]
     assigner: User
     task_id: int
     task_name: str
@@ -314,7 +317,7 @@ class Task:
         self.assigned_at = pendulum.now(tz="EST")
         self.description = ""
         self.assigner = assigner
-        self.assignee = None
+        self.assignee = []
         self.completion_status = False
         self.completed_on = None
         global taskglob
@@ -330,7 +333,11 @@ class Task:
         if not self.completion_status and self.due_at:
             str_builder += f"This task is incomplete and due at{str(self.due_at.format('D-MM HH:mm zz'))}\n"
         if self.assignee:
-            str_builder += f"Assigned by {self.assigner.username} to {self.assignee.username} on{self.assigned_at.format('D-MM HH:mm zz')}"
+            str_builder += f"Assigned by {self.assigner.username} to "
+            for user in self.assignee:
+                str_builder += user.username + " and "
+            str_builder = str_builder[:-4]
+            str_builder += f"on {self.assigned_at.format('D-MM HH:mm zz')}"
         else:
             str_builder += f"Initialized by {self.assigner.username} on {self.assigned_at.format('D-MM HH:mm zz')}, currently unassigned."
         return str_builder
@@ -339,7 +346,7 @@ class Task:
         self.due_at = new_date
 
     def change_assignee(self, new_user: User):
-        self.assignee = new_user
+        self.assignee.append(new_user)
 
     def change_status(self, new_status: bool):
         if new_status:
