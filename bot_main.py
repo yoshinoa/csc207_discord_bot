@@ -543,7 +543,7 @@ async def assign(ctx, taskid: int):
                          'to task')
 async def deadline(ctx, date: str, time: str, *args):
     deadline_date = pendulum.from_format(f'{date} {time}', 'YYYY-M-D H',
-                                         tz='est')
+                                         tz='EST')
     task_ids = []
     for item in args:
         task_ids.append(int(item))
