@@ -470,6 +470,26 @@ async def create(ctx, *args):
     all_guilds[ctx.guild.id].add_task(localtask)
     await ctx.send(f"Task with TaskID **{localtask.task_id}** was created")
 
+@task_group.command(name='unassign',
+                    help='unassign [task id] @user')
+async def unassign(ctx, taskid: int):
+    try:
+        if taskid in all_guilds[ctx.guild.id].tasks:
+            if ctx.message.mentions[0].id in all_guilds[ctx.guild.id].users:
+                assignee = all_guilds[ctx.guild.id].users[
+                    ctx.message.mentions[0].id]
+                all_guilds[ctx.guild.id].tasks[taskid].remove_assignee(assignee)
+                await ctx.send(
+                    f'Successfully removed <@{ctx.message.mentions[0].id}>.')
+            else:
+                await ctx.send(
+                    f'<@{ctx.message.mentions[0].id}> has not yet setup their '
+                    f'schedule.')
+        else:
+            await ctx.send("Invalid task id.")
+    except ValueError:
+        await ctx.send("Invalid or missing task id.")
+
 @task_group.command(name='delete',
                     help='delete [task id]')
 async def delete(ctx, taskid: int):

@@ -346,7 +346,12 @@ class Task:
         self.due_at = new_date
 
     def change_assignee(self, new_user: User):
-        self.assignee.append(new_user)
+        if new_user not in self.assignee:
+            self.assignee.append(new_user)
+
+    def remove_assignee(self, new_user):
+        if new_user in self.assignee:
+            self.assignee.remove(new_user)
 
     def change_status(self, new_status: bool):
         if new_status:
