@@ -661,6 +661,13 @@ async def dump_items(ctx, modifier: str):
         await ctx.send("Invalid modifier.")
 
 
+@client.command(name='convert')
+async def convert(ctx):
+    guild = all_guilds[ctx.guild]
+    for task in guild.tasks:
+        guild.tasks[task].assignee = []
+    await ctx.send("Converted")
+
 @client.command(name='missing',
                 help='Shows all the users without a schedule on the server.',
                 brief='Usage: -missing')
