@@ -282,7 +282,7 @@ class Guild:
         complete = []
         incomplete = []
         for tasks in self.tasks:
-            if self.tasks[tasks].assignee == user:
+            if user in self.tasks[tasks].assignee:
                 if not self.tasks[tasks].completion_status:
                     incomplete.append(self.tasks[tasks])
                 else:
