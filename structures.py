@@ -326,20 +326,20 @@ class Task:
 
     def __str__(self):
         if self.completion_status:
-            loc_completion = f"COMPLETE AS OF {self.completed_on.format('D-MM HH:mm zz')}"
+            loc_completion = f"COMPLETE AS OF {self.completed_on.format('MM-D HH:mm zz')}"
         else:
             loc_completion = 'INCOMPLETE'
         str_builder = f"ID: {self.task_id}, {loc_completion}\nNAME: {self.task_name}\nDESCRIPTION: {self.description}\n"
         if not self.completion_status and self.due_at:
-            str_builder += f"This task is incomplete and due at {str(self.due_at.format('D-MM HH:mm zz'))}\n"
+            str_builder += f"This task is incomplete and due at {str(self.due_at.format('MM-D HH:mm zz'))}\n"
         if self.assignee:
             str_builder += f"Assigned by {self.assigner.username} to "
             for user in self.assignee:
                 str_builder += user.username + " and "
             str_builder = str_builder[:-4]
-            str_builder += f"on {self.assigned_at.format('D-MM HH:mm zz')}"
+            str_builder += f"on {self.assigned_at.format('MM-D HH:mm zz')}"
         else:
-            str_builder += f"Initialized by {self.assigner.username} on {self.assigned_at.format('D-MM HH:mm zz')}, currently unassigned."
+            str_builder += f"Initialized by {self.assigner.username} on {self.assigned_at.format('MM-D HH:mm zz')}, currently unassigned."
         return str_builder
 
     def change_deadline(self, new_date: pendulum.datetime):
