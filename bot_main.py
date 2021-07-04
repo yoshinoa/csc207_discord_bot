@@ -621,10 +621,10 @@ async def user(ctx):
     finished, unfinished = all_guilds[ctx.guild.id].get_tasks_user(local_user)
     strbuilder = "```Complete:\n"
     for item in finished:
-        strbuilder += str(item) + '\n'
+        strbuilder += str(item) + '\n\n'
     strbuilder += "Incomplete:\n"
     for item in unfinished:
-        strbuilder += str(item) + '\n'
+        strbuilder += str(item) + '\n\n'
     strbuilder += '```'
     await ctx.send(strbuilder)
 
